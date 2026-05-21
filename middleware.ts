@@ -18,19 +18,25 @@ function isProtectedPath(path: string): boolean {
 function readSupabaseEnv(): { url: string; anonKey: string } | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-  if (!url || !anonKey) return null;
+  if (!url || !anonKey || !url.startsWith("https://")) return null;
   return { url, anonKey };
 }
 
-/** Keep Set-Cookie from session refresh when returning a redirect. */
-function forwardCookies(from: NextResponse, to: NextResponse): NextResponse {
-  for (const cookie of from.cookies.getAll()) {
-    to.cookies.set(cookie);
+function redirectWithSessionCookies(
+  request: NextRequest,
+  pathname: string,
+  sessionResponse: NextResponse,
+): NextResponse {
+  const url = request.nextUrl.clone();
+  url.pathname = pathname;
+  const redirect = NextResponse.redirect(url);
+  for (const { name, value } of sessionResponse.cookies.getAll()) {
+    redirect.cookies.set(name, value);
   }
-  return to;
+  return redirect;
 }
 
-export async function middleware(request: NextRequest) {
+async function handleAuth(request: NextRequest): Promise<NextResponse> {
   const path = request.nextUrl.pathname;
 
   if (path.startsWith("/dashboard")) {
@@ -51,54 +57,59 @@ export async function middleware(request: NextRequest) {
 
   let response = NextResponse.next({ request });
 
-  try {
-    const supabase = createServerClient(env.url, env.anonKey, {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          response = NextResponse.next({ request });
-          for (const { name, value, options } of cookiesToSet) {
-            response.cookies.set(name, value, options);
-          }
-        },
+  const supabase = createServerClient(env.url, env.anonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
       },
-    });
+      setAll(cookiesToSet) {
+        response = NextResponse.next({ request });
+        for (const { name, value, options } of cookiesToSet) {
+          try {
+            if (options && Object.keys(options).length > 0) {
+              response.cookies.set({ name, value, ...options });
+            } else {
+              response.cookies.set(name, value);
+            }
+          } catch {
+            response.cookies.set(name, value);
+          }
+        }
+      },
+    },
+  });
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  // getSession: cookie-based + refresh; safer on Edge than extra getUser round-trips
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-    if (isProtectedPath(path) && !user) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      return forwardCookies(response, NextResponse.redirect(url));
-    }
+  const user = session?.user ?? null;
 
-    if (user && path.startsWith("/login")) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/";
-      return forwardCookies(response, NextResponse.redirect(url));
-    }
+  if (isProtectedPath(path) && !user) {
+    return NextResponse.redirect(
+      new URL("/login", request.nextUrl.origin),
+    );
+  }
 
-    return response;
+  if (user && path.startsWith("/login")) {
+    return redirectWithSessionCookies(request, "/", response);
+  }
+
+  return response;
+}
+
+export async function middleware(request: NextRequest) {
+  try {
+    return await handleAuth(request);
   } catch {
-    if (isProtectedPath(path)) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      return NextResponse.redirect(url);
-    }
+    // Never crash the Edge worker — fail open so the site loads
     return NextResponse.next();
   }
 }
 
 export const config = {
   matcher: [
-    /*
-     * Session refresh + auth for app routes only.
-     * Skip static assets, Next internals, and API routes.
-     */
     "/((?!_next/static|_next/image|_next/webpack-hmr|api/|favicon.ico|icon.svg|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?|ttf|eot)$).*)",
   ],
 };
