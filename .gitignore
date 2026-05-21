@@ -1,0 +1,15 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# next
+/.next/
+/out/
+
+# env
+.env*.local
+
+# debug
+npm-debug.log*
+tsconfig.tsbuildinfo
