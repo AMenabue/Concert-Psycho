@@ -1,4 +1,4 @@
-import type { DeparturePreset } from "@/app/concerts/[id]/actions";
+import type { DeparturePreset } from "@/app/(protected)/concerts/[id]/actions";
 
 export const DEPARTURE_OTHER_ID = "__other__";
 

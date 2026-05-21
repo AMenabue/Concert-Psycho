@@ -1,6 +1,5 @@
-import { refreshSessionAndGuard } from "@/lib/auth/session-guard";
+import { refreshSession } from "@/lib/auth/session-guard";
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -23,8 +22,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const pathname = headers().get("x-pathname") ?? "/";
-  await refreshSessionAndGuard(pathname);
+  await refreshSession();
 
   return (
     <html lang="it">

@@ -6,7 +6,7 @@ import {
   getHomeProfileHeader,
 } from "@/lib/home-data";
 import { getDashboardStatistics } from "@/lib/statistics/dashboard-stats";
-import { listHomeCardTemplates } from "@/app/statistics/home-card-templates";
+import { listHomeCardTemplates } from "@/app/(protected)/statistics/home-card-templates";
 import type { FlightyAppHomePayload } from "@/app/prototype/flighty/app-home-payload";
 import FlightyHomeClient from "@/app/prototype/flighty/home/flighty-home-client";
 import { Chivo_Mono, Inter } from "next/font/google";

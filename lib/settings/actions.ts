@@ -8,7 +8,7 @@ import {
   updateHomeLocation,
   updateProfileSetlistfmUserId,
   type HomeLocationRow,
-} from "@/app/concerts/new/actions";
+} from "@/app/(protected)/concerts/new/actions";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 

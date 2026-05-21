@@ -3,7 +3,7 @@
 import {
   importSetlistfmAttendedConcerts,
   updateProfileSetlistfmUserId,
-} from "@/app/concerts/new/actions";
+} from "@/app/(protected)/concerts/new/actions";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 

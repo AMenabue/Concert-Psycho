@@ -1,9 +1,9 @@
 "use client";
 
-import { applySetlistSelection, type SetlistSelectionDraft } from "@/app/concerts/new/apply-setlist-selection";
-import { submitNewConcertApp } from "@/app/concerts/new/actions";
-import type { SubmitSongRow } from "@/app/concerts/new/submit-concert-types";
-import type { DeparturePreset } from "@/app/concerts/[id]/actions";
+import { applySetlistSelection, type SetlistSelectionDraft } from "@/app/(protected)/concerts/new/apply-setlist-selection";
+import { submitNewConcertApp } from "@/app/(protected)/concerts/new/actions";
+import type { SubmitSongRow } from "@/app/(protected)/concerts/new/submit-concert-types";
+import type { DeparturePreset } from "@/app/(protected)/concerts/[id]/actions";
 import { ConcertAttendanceFields } from "@/components/add-concert/concert-attendance-fields";
 import {
   defaultDeparturePresetId,

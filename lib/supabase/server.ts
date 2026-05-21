@@ -19,7 +19,7 @@ export function createClient() {
             );
           } catch {
             // Ignored: called from a Server Component without mutable cookies.
-            // Session refresh is handled in middleware.
+            // Session refresh is handled in root layout (refreshSession).
           }
         },
       },

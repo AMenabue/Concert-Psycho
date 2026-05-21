@@ -1,4 +1,4 @@
-import { getMySetlistfmUserId } from "@/app/concerts/new/actions";
+import { getMySetlistfmUserId } from "@/app/(protected)/concerts/new/actions";
 import { AppSubpageHeader } from "@/components/app-subpage-header";
 import { getDeparturePresetsForUser } from "@/lib/dashboard/departure-presets";
 import {

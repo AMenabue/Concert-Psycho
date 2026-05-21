@@ -2,7 +2,7 @@
 
 import { LogoutButton } from "@/components/auth/logout-button";
 import { SetlistBulkImportCard } from "@/components/add-concert/setlist-bulk-import-card";
-import type { HomeLocationRow } from "@/app/concerts/new/actions";
+import type { HomeLocationRow } from "@/app/(protected)/concerts/new/actions";
 import type { SettingsPageData } from "@/lib/settings/actions";
 import {
   createHomeLocation,

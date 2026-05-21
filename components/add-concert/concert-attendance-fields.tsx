@@ -1,6 +1,6 @@
 "use client";
 
-import type { DeparturePreset } from "@/app/concerts/[id]/actions";
+import type { DeparturePreset } from "@/app/(protected)/concerts/[id]/actions";
 import {
   TICKET_PURCHASE_DATE_HINT,
   TICKET_PURCHASE_DATE_PLACEHOLDER,

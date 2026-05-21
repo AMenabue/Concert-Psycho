@@ -1,5 +1,5 @@
 import { listMyConcerts } from "@/lib/concerts/list-actions";
-import { ConcertsListClient } from "@/app/concerts/concerts-list-client";
+import { ConcertsListClient } from "@/app/(protected)/concerts/concerts-list-client";
 import { AppSubpageHeader } from "@/components/app-subpage-header";
 import { APP_SUBPAGE_BODY_CLASS, APP_SUBPAGE_MAIN_CLASS } from "@/lib/app-subpage-layout";
 

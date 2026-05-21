@@ -1,4 +1,4 @@
-import type { DeparturePreset } from "@/app/concerts/[id]/actions";
+import type { DeparturePreset } from "@/app/(protected)/concerts/[id]/actions";
 import { createClient } from "@/lib/supabase/server";
 
 export async function getDeparturePresetsForUser(): Promise<DeparturePreset[]> {

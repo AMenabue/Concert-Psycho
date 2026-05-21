@@ -1,5 +1,5 @@
 import { SectionTitle } from "@/components/stats/stat-primitives";
-import type { NamedValue } from "@/app/statistics/data";
+import type { NamedValue } from "@/app/(protected)/statistics/data";
 
 const MONO_STYLE = { fontFamily: "var(--font-flighty-chivo), ui-monospace, monospace" };
 
