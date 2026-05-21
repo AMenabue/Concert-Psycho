@@ -1,5 +1,9 @@
+import { refreshSessionAndGuard } from "@/lib/auth/session-guard";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Concert Archive",
@@ -14,11 +18,14 @@ export const viewport = {
   viewportFit: "cover" as const,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const pathname = headers().get("x-pathname") ?? "/";
+  await refreshSessionAndGuard(pathname);
+
   return (
     <html lang="it">
       <body className="min-h-screen bg-neutral-950 text-neutral-100 antialiased">
