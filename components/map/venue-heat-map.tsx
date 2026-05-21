@@ -314,7 +314,6 @@ function HeatmapClickLayer({
                 key={`city-${cluster.key}`}
                 center={[cluster.lat, cluster.lng]}
                 radius={40 + Math.max(0, CITY_HEAT_ZOOM_MAX - zoom) * 6}
-                zIndexOffset={2000}
                 pathOptions={{
                   fillOpacity: 0,
                   opacity: 0,
@@ -337,7 +336,6 @@ function HeatmapClickLayer({
                 key={`${spot.lat},${spot.lng},${spot.venueName}`}
                 center={[spot.lat, spot.lng]}
                 radius={hitRadius}
-                zIndexOffset={2000}
                 pathOptions={{
                   fillOpacity: 0,
                   opacity: 0,

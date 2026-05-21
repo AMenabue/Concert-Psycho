@@ -44,7 +44,7 @@ export function buildCityClusters(
   }
 
   const clusters: VenueHeatmapCityCluster[] = [];
-  for (const [key, venues] of byKey) {
+  for (const [key, venues] of Array.from(byKey.entries())) {
     if (venues.length === 0) continue;
     let wSum = 0;
     let lat = 0;
