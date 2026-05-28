@@ -20,7 +20,22 @@
   max-width: min(280px, calc(100vw - 48px));
   min-height: 0 !important;
   height: auto !important;
-  line-height: 1.35;
+  line-height: 1.25;
+}
+
+/* Prevent mono/display metrics from inflating popup height on mobile */
+.leaflet-popup.venue-heat-popup .map-heat-popup-card {
+  display: block;
+}
+
+.leaflet-popup.venue-heat-popup .map-heat-popup-card p,
+.leaflet-popup.venue-heat-popup .map-heat-popup-card li,
+.leaflet-popup.venue-heat-popup .map-heat-popup-card span {
+  margin: 0;
+}
+
+.leaflet-popup.venue-heat-popup .map-heat-stat-value {
+  line-height: 1 !important;
 }
 
 .leaflet-popup.venue-heat-popup .leaflet-popup-tip {
