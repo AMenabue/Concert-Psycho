@@ -338,7 +338,7 @@ export function ConcertDetailClient(props: { initial: ConcertDetailPage }) {
                               {feat ? (
                                 <span className="text-neutral-400">
                                   {" "}
-                                  feat. {feat}
+                                  with {feat}
                                 </span>
                               ) : null}
                             </div>

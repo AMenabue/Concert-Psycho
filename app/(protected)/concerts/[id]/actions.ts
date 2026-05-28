@@ -7,7 +7,8 @@ import {
   type LineupRowInput,
 } from "@/lib/gigs/billing-headliners";
 import { countUniqueGuestsForGig } from "@/lib/guests/gig-guests";
-import { parseFeaturingNamesList, parseSetlistSongInfo } from "@/lib/setlistfm/parse";
+import { mergeFeaturingNamesForDisplay } from "@/lib/guests/featuring-display";
+import { parseSetlistSongInfo } from "@/lib/setlistfm/parse";
 import { travelKmFromDepartureCityToVenue } from "@/lib/geo/travel-from-departure-city";
 import { createClient } from "@/lib/supabase/server";
 import { daysInAdvanceFromPurchase } from "@/lib/ticket-purchase-date";
@@ -432,16 +433,12 @@ export async function getConcertDetailPage(
     }
   }
 
-  const featuringDisplayFor = (s: RawSong): string | null => {
-    const fromLinks = featuringNamesBySongId.get(s.id);
-    if (fromLinks && fromLinks.length > 0) return fromLinks.join(", ");
-    const parsed = parseFeaturingNamesList(s.featuring_names);
-    if (parsed.length > 0) return parsed.join(", ");
-    if (s.guest_artist_id) {
-      return guestNameById.get(s.guest_artist_id) ?? null;
-    }
-    return null;
-  };
+  const featuringDisplayFor = (s: RawSong): string | null =>
+    mergeFeaturingNamesForDisplay(
+      featuringNamesBySongId.get(s.id) ?? [],
+      s.featuring_names,
+      s.guest_artist_id ? guestNameById.get(s.guest_artist_id) ?? null : null,
+    );
 
   const songs: ConcertSongRow[] = rawSongs
     .filter((s) => s.is_tape !== true)

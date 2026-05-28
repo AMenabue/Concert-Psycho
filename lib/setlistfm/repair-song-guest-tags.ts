@@ -195,6 +195,10 @@ export async function repairMisclassifiedGuestsAsTagsForUser(
     for (const n of parseFeaturingNamesList(song.featuring_names as string | null)) {
       guestNames.push(n);
     }
+    const infoEarly = parseSetlistSongInfo(song.song_info as string | null);
+    for (const n of infoEarly.extraFeaturingNames) {
+      guestNames.push(n);
+    }
     const headGuestId = song.guest_artist_id as string | null;
     if (headGuestId) {
       const n = artistNameById.get(headGuestId);

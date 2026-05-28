@@ -85,15 +85,10 @@ export function resolveBillingNamesForGig(
     }
   }
 
-  const headKey = headlinerName.trim().toLowerCase();
-  if (headKey) {
-    for (const row of ampersandArtists) {
-      const parsed = parseBillingHeadlinerNames(row.name);
-      if (parsed.length > 1 && parsed.some((p) => p.trim().toLowerCase() === headKey)) {
-        return parsed;
-      }
-    }
-  }
+  // Do not expand a solo headliner (e.g. "Salmo") into "Noyz Narcos & Salmo" just because
+  // that duo exists as a separate row in `artists` from another tour on Setlist.fm.
+  void ampersandArtists;
+  void gigSource;
 
   return fromHeadliner;
 }
@@ -230,6 +225,16 @@ export function formatGigHeadlinerDisplay(
   artistNameById: Map<string, string>,
   gigHeadlinerArtistId: string,
 ): string {
+  const storedHeadliner = artistNameById.get(gigHeadlinerArtistId)?.trim() ?? "";
+  if (
+    storedHeadliner &&
+    !isCombinedBillingArtistName(storedHeadliner) &&
+    roles.coHeadlinerArtistIds.length === 0 &&
+    roles.billingNames.length <= 1
+  ) {
+    return storedHeadliner;
+  }
+
   const headIds = new Set([roles.primaryArtistId, ...roles.coHeadlinerArtistIds]);
   if (
     gigHeadlinerArtistId &&

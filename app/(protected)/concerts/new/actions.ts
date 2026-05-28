@@ -459,6 +459,7 @@ async function findOrCreateGuestArtist(
     cache.set(key, null);
     return null;
   }
+  const normalized = trimmed.replace(/^\s*(?:feat\.?|featuring|with)\s+/i, "").trim() || trimmed;
 
   if (mbid?.trim()) {
     const { data: byMbid } = await supabase
@@ -472,16 +473,17 @@ async function findOrCreateGuestArtist(
     }
   }
 
-  const pattern = `%${escapeIlike(trimmed)}%`;
+  const pattern = `%${escapeIlike(normalized)}%`;
   const { data: candidates } = await supabase
     .from("artists")
     .select("id,name")
     .ilike("name", pattern)
     .limit(12);
 
-  const exact = candidates?.find(
-    (r) => r.name.toLowerCase() === trimmed.toLowerCase(),
-  );
+  const exact = candidates?.find((r) => {
+    const n = String(r.name ?? "").trim().toLowerCase();
+    return n === normalized.toLowerCase() || n === trimmed.toLowerCase();
+  });
   if (exact?.id) {
     cache.set(key, exact.id);
     return exact.id;
@@ -644,6 +646,10 @@ async function insertLineupAndSongsForGig(
       }
       const uniq = Array.from(new Set(resolved));
       guestArtistIdsByPosition.set(s.position, uniq);
+      const featuringNamesJoined =
+        guests.length > 0
+          ? guests.map((g) => g.name.trim()).filter(Boolean).join(", ")
+          : s.featuringNames?.trim() || null;
       rows.push({
         gig_id: gigId,
         title: s.title,
@@ -652,7 +658,7 @@ async function insertLineupAndSongsForGig(
         is_cover: s.isCover,
         is_tape: s.isTape === true,
         guest_artist_id: uniq[0] ?? null,
-        featuring_names: s.featuringNames?.trim() || null,
+        featuring_names: featuringNamesJoined,
         song_info: s.songInfo?.trim() || null,
         set_name: s.setName?.trim() || null,
         cover_original_artist: s.coverOriginalArtist?.trim() || null,
@@ -1116,6 +1122,7 @@ export async function persistNewConcert(
       }
       return { error: sub.error };
     }
+    await repairMisclassifiedGuestsAsTagsForUser(supabase, userId, [gigId]);
   }
 
   return { attendanceId };
@@ -1405,6 +1412,8 @@ export async function resyncGigFromSetlistfm(
     headlinerId,
   );
   if (sub.error) return { error: sub.error };
+
+  await repairMisclassifiedGuestsAsTagsForUser(supabase, user.id, [gigId]);
 
   const updateRow: Record<string, unknown> = {
     setlistfm_version_id: meta.versionId,

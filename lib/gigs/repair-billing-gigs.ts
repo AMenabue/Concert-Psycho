@@ -72,15 +72,7 @@ function inferBillingNamesForRepair(
     if (fromLineup.length > 1) return fromLineup;
   }
 
-  const headKey = headlinerName.trim().toLowerCase();
-  if (headKey) {
-    for (const row of ampersandArtists) {
-      const parsed = parseBillingHeadlinerNames(row.name);
-      if (parsed.length > 1 && parsed.some((p) => p.trim().toLowerCase() === headKey)) {
-        return parsed;
-      }
-    }
-  }
+  void ampersandArtists;
 
   return fromGig;
 }
