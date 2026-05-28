@@ -60,12 +60,23 @@ export function buildCityClusters(
       for (const name of v.artistNames) artists.add(name);
     }
     const first = venues[0]!;
-    const venueRows: VenueHeatmapCityVenue[] = venues
-      .map((v) => ({ name: v.venueName, concertCount: v.concertCount }))
-      .sort((a, b) => {
+    const byVenueName = new Map<string, VenueHeatmapCityVenue>();
+    for (const v of venues) {
+      const name = v.venueName.trim() || "—";
+      const key = name.toLowerCase();
+      const prev = byVenueName.get(key);
+      if (prev) {
+        prev.concertCount += v.concertCount;
+      } else {
+        byVenueName.set(key, { name, concertCount: v.concertCount });
+      }
+    }
+    const venueRows: VenueHeatmapCityVenue[] = Array.from(byVenueName.values()).sort(
+      (a, b) => {
         if (b.concertCount !== a.concertCount) return b.concertCount - a.concertCount;
         return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-      });
+      },
+    );
     clusters.push({
       key,
       city: first.city.trim() || "—",

@@ -190,33 +190,33 @@ const mapCardMono = "font-[family-name:var(--font-flighty-chivo),ui-monospace,mo
 function MapInsightCardShell(props: { children: ReactNode; className?: string }) {
   return (
     <div
-      className={`relative w-[min(268px,calc(100vw-40px))] overflow-hidden rounded-[16px] px-5 pb-4 pt-5 text-left shadow-lg ring-1 ring-black/8 ${props.className ?? ""}`}
+      className={`relative w-[min(252px,calc(100vw-48px))] shrink-0 overflow-hidden rounded-[16px] px-[20px] py-4 text-left shadow-lg ring-1 ring-black/8 ${props.className ?? ""}`}
       style={{ backgroundImage: MAP_CARD_GRADIENT }}
     >
       <div
-        className="pointer-events-none absolute inset-0 opacity-40"
+        className="pointer-events-none absolute inset-0 opacity-35"
         style={{
           background:
-            "radial-gradient(ellipse 85% 60% at 12% 0%, rgba(255,255,255,0.55) 0%, transparent 55%)",
+            "radial-gradient(ellipse 85% 55% at 10% 0%, rgba(255,255,255,0.5) 0%, transparent 52%)",
         }}
         aria-hidden
       />
-      <div className="relative z-[1]">{props.children}</div>
+      <div className="relative z-[1] flex flex-col gap-0">{props.children}</div>
     </div>
   );
 }
 
 function MapStatPair(props: { label: string; value: string }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <p className="text-[12px] font-light leading-[15px] text-[rgba(25,78,118,0.58)]">
+    <div className="flex w-[72px] shrink-0 flex-col items-start gap-[4px]">
+      <span className="block text-[12px] font-light leading-[14px] text-[rgba(25,78,118,0.58)]">
         {props.label}
-      </p>
-      <p
-        className={`${mapCardMono} text-[22px] font-semibold leading-[26px] tracking-tight text-[#003c63] tabular-nums`}
+      </span>
+      <span
+        className={`${mapCardMono} block text-[20px] font-semibold leading-[22px] tracking-tight text-[#003c63] tabular-nums`}
       >
         {props.value}
-      </p>
+      </span>
     </div>
   );
 }
@@ -230,21 +230,21 @@ function CityHeatPopup({ cluster }: { cluster: VenueHeatmapCityCluster }) {
     <MapInsightCardShell>
       {location ? (
         <p
-          className={`${mapCardMono} text-[26px] font-normal leading-[30px] tracking-tight text-[#003c63]`}
+          className={`${mapCardMono} m-0 text-[20px] font-normal leading-[24px] tracking-tight text-[#003c63]`}
         >
           {location}
         </p>
       ) : null}
-      <div className="mt-3 flex flex-wrap gap-x-8 gap-y-2">
+      <div className="mt-2.5 flex flex-row items-start gap-10">
         <MapStatPair label="Concerts" value={String(cluster.concertCount)} />
         <MapStatPair label="Artists seen" value={String(cluster.artistNames.length)} />
       </div>
       {listedVenues.length > 0 ? (
-        <ul className="mt-3 space-y-1 border-t border-[#003c63]/12 pt-3">
+        <ul className="m-0 mt-2.5 list-none space-y-0.5 border-t border-[#003c63]/12 p-0 pt-2.5">
           {listedVenues.map((venue) => (
             <li
               key={venue.name}
-              className="truncate text-[14px] font-light leading-[18px] text-[#003c63]/90"
+              className="truncate text-[14px] font-light leading-[17px] text-[#003c63]/90"
             >
               {venue.name}
               {venue.concertCount > 1 ? (
@@ -253,7 +253,7 @@ function CityHeatPopup({ cluster }: { cluster: VenueHeatmapCityCluster }) {
             </li>
           ))}
           {moreVenues > 0 ? (
-            <li className="pt-0.5 text-[12px] font-light text-[rgba(25,78,118,0.55)]">
+            <li className="pt-0.5 text-[12px] font-light leading-[14px] text-[rgba(25,78,118,0.55)]">
               +{moreVenues} more venues
             </li>
           ) : null}
@@ -269,41 +269,41 @@ function VenueHeatPopup({ spot }: { spot: VenueHeatmapSpot }) {
   const more = spot.artistNames.length - artists.length;
 
   return (
-    <MapInsightCardShell className="w-[min(248px,calc(100vw-40px))]">
+    <MapInsightCardShell>
       <p
-        className={`${mapCardMono} text-[22px] font-normal leading-[26px] tracking-tight text-[#003c63]`}
+        className={`${mapCardMono} m-0 text-[20px] font-normal leading-[24px] tracking-tight text-[#003c63]`}
       >
         {spot.venueName}
       </p>
       {location ? (
-        <p className="mt-1 text-[14px] font-light leading-[17px] text-[rgba(25,78,118,0.58)]">
+        <p className="m-0 mt-0.5 text-[14px] font-light leading-[17px] text-[rgba(25,78,118,0.58)]">
           {location}
         </p>
       ) : null}
-      <div className="mt-3">
+      <div className="mt-2.5">
         <MapStatPair label="Concerts" value={String(spot.concertCount)} />
       </div>
       {artists.length > 0 ? (
-        <>
-          <p className="mt-3 border-t border-[#003c63]/12 pt-3 text-[12px] font-light text-[rgba(25,78,118,0.58)]">
+        <div className="mt-2.5 border-t border-[#003c63]/12 pt-2.5">
+          <p className="m-0 text-[12px] font-light leading-[14px] text-[rgba(25,78,118,0.58)]">
             Artists seen
           </p>
-          <ul className="mt-1.5 space-y-1">
+          <ul className="m-0 mt-1 list-none space-y-0.5 p-0">
             {artists.map((name) => (
               <li
                 key={name}
-                className={`${mapCardMono} truncate text-[14px] font-normal leading-[18px] text-[#003c63]/88`}
+                className={`${mapCardMono} truncate text-[14px] font-normal leading-[17px] text-[#003c63]/88`}
               >
                 {name}
               </li>
             ))}
             {more > 0 ? (
-              <li className="text-[12px] font-light text-[rgba(25,78,118,0.55)]">
+              <li className="text-[12px] font-light leading-[14px] text-[rgba(25,78,118,0.55)]">
                 +{more} more
               </li>
             ) : null}
           </ul>
-        </>
+        </div>
       ) : null}
     </MapInsightCardShell>
   );
@@ -419,8 +419,8 @@ function HeatmapClickLayer({
           className="venue-heat-popup"
           closeButton={false}
           autoPan
-          minWidth={200}
-          maxWidth={288}
+          minWidth={1}
+          maxWidth={280}
           eventHandlers={{ remove: () => setSelection(null) }}
         >
           {selection.kind === "city" ? (
