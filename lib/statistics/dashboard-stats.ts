@@ -6,7 +6,9 @@ import {
   resolveGigBillingRoles,
   type LineupRowInput,
 } from "@/lib/gigs/billing-headliners";
+import { canonicalCityName } from "@/lib/geo/canonical-location";
 import { repairCombinedBillingGigsForUser } from "@/lib/gigs/repair-billing-gigs";
+import { repairCanonicalVenueLocationsForUser } from "@/lib/venues/repair-canonical-locations";
 import type { VenueHeatmapSpot } from "@/lib/map/venue-heatmap-types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -207,6 +209,7 @@ export async function getDashboardStatistics(): Promise<DashboardStatistics | nu
   if (!user) return null;
 
   await repairCombinedBillingGigsForUser(supabase, user.id);
+  await repairCanonicalVenueLocationsForUser(supabase, user.id);
 
   const { data: attRows, error: attErr } = await supabase
     .from("gig_attendances")
@@ -410,7 +413,10 @@ export async function getDashboardStatistics(): Promise<DashboardStatistics | nu
       ? [vn.name, vn.city].filter(Boolean).join(", ") || vn.name || "Venue"
       : "Venue";
     venueLabelCounts.set(vLabel, (venueLabelCounts.get(vLabel) ?? 0) + 1);
-    if (vn?.city) cityCounts.set(vn.city, (cityCounts.get(vn.city) ?? 0) + 1);
+    if (vn?.city) {
+      const statCity = canonicalCityName(vn.city, vn.country ?? "");
+      cityCounts.set(statCity, (cityCounts.get(statCity) ?? 0) + 1);
+    }
     if (vn?.country) {
       countryCounts.set(vn.country, (countryCounts.get(vn.country) ?? 0) + 1);
     }
@@ -418,7 +424,9 @@ export async function getDashboardStatistics(): Promise<DashboardStatistics | nu
     const aid = g.artist_id;
     if (!artistCitySets.has(aid)) artistCitySets.set(aid, new Set());
     if (!artistVenueSets.has(aid)) artistVenueSets.set(aid, new Set());
-    const cityKey = (vn?.city ?? "").trim().toLowerCase();
+    const cityKey = canonicalCityName(vn?.city ?? "", vn?.country ?? "")
+      .trim()
+      .toLowerCase();
     if (cityKey) artistCitySets.get(aid)!.add(cityKey);
     artistVenueSets.get(aid)!.add(g.venue_id);
 
@@ -1232,7 +1240,7 @@ export async function getDashboardStatistics(): Promise<DashboardStatistics | nu
       lng: vn.lng,
       weight,
       venueName: vn.name || "Venue",
-      city: vn.city ?? "",
+      city: canonicalCityName(vn.city ?? "", vn.country ?? ""),
       country: vn.country ?? "",
       concertCount: weight,
       artistNames: Array.from(artistNamesByVenue.get(vid) ?? []).sort((a, b) =>

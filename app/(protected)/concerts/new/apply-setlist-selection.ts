@@ -8,10 +8,10 @@ import {
   setlistEventDateToIso,
   type SlSetlistFull,
 } from "@/lib/setlistfm/parse";
+import { canonicalVenueFromSetlist } from "@/lib/geo/canonical-location";
 import {
-  findVenueBySetlistfmVenueId,
+  findVenueForSetlistImport,
   searchArtists,
-  searchVenues,
   type ArtistRow,
   type VenueRow,
 } from "./actions";
@@ -92,37 +92,29 @@ export async function applySetlistSelection(sl: SlSetlistFull): Promise<SetlistS
   const vCountry = sl.venue?.city?.country?.name?.trim() ?? "";
   const lat = sl.venue?.city?.coords?.lat;
   const lng = sl.venue?.city?.coords?.long;
+  const canonVenue = canonicalVenueFromSetlist({
+    name: vName,
+    city: vCity,
+    country: vCountry,
+  });
 
   let venueMode: "existing" | "create" = "create";
   let venueSelected: VenueRow | null = null;
-  let newVenueName = vName;
-  let newVenueCity = vCity;
+  let newVenueName = canonVenue.name;
+  let newVenueCity = canonVenue.city;
   let newVenueCountry = vCountry;
   let newVenueLat = typeof lat === "number" ? String(lat) : "";
   let newVenueLng = typeof lng === "number" ? String(lng) : "";
 
-  if (meta.venueSetlistfmId) {
-    const bySl = await findVenueBySetlistfmVenueId(meta.venueSetlistfmId);
-    if (bySl) {
-      venueMode = "existing";
-      venueSelected = bySl;
-    }
-  }
-  if (!venueSelected && vName) {
-    const q = `${vName} ${vCity}`.trim();
-    const vrows = await searchVenues(q);
-    const vMatch =
-      vrows.find(
-        (v) =>
-          v.name.toLowerCase() === vName.toLowerCase() &&
-          v.city.toLowerCase() === vCity.toLowerCase(),
-      ) ??
-      vrows.find((v) => v.name.toLowerCase() === vName.toLowerCase()) ??
-      vrows[0];
-    if (vMatch) {
-      venueMode = "existing";
-      venueSelected = vMatch;
-    }
+  const existingVenue = await findVenueForSetlistImport({
+    setlistfmVenueId: meta.venueSetlistfmId,
+    name: vName,
+    city: vCity,
+    country: vCountry,
+  });
+  if (existingVenue) {
+    venueMode = "existing";
+    venueSelected = existingVenue;
   }
 
   const displayArtist =

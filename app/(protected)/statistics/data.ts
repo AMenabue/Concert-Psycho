@@ -12,7 +12,9 @@ import {
   resolveGigBillingRoles,
   type LineupRowInput,
 } from "@/lib/gigs/billing-headliners";
+import { canonicalCityName } from "@/lib/geo/canonical-location";
 import { repairCombinedBillingGigsForUser } from "@/lib/gigs/repair-billing-gigs";
+import { repairCanonicalVenueLocationsForUser } from "@/lib/venues/repair-canonical-locations";
 import { createClient } from "@/lib/supabase/server";
 
 /* ------------------------------------------------------------------ */
@@ -374,6 +376,7 @@ export async function getFullStatistics(): Promise<FullStatistics> {
   if (!user) return emptyStats();
 
   await repairCombinedBillingGigsForUser(supabase, user.id);
+  await repairCanonicalVenueLocationsForUser(supabase, user.id);
 
   const { data: attRows, error: attErr } = await supabase
     .from("gig_attendances")
@@ -861,7 +864,9 @@ export async function getFullStatistics(): Promise<FullStatistics> {
       for (const aid of Array.from(headIds)) {
         if (v?.city) {
           if (!artistCityMap.has(aid)) artistCityMap.set(aid, new Set());
-          artistCityMap.get(aid)!.add(v.city.toLowerCase());
+          artistCityMap
+            .get(aid)!
+            .add(canonicalCityName(v.city, v.country).toLowerCase());
         }
         if (v?.country) {
           if (!artistCountryMap.has(aid)) artistCountryMap.set(aid, new Set());
@@ -1107,7 +1112,9 @@ export async function getFullStatistics(): Promise<FullStatistics> {
         const b = bag.get(key)!;
         b.plays += 1;
         b.venues.add(r.venueId);
-        if (v?.city) b.cities.add(v.city.toLowerCase());
+        if (v?.city) {
+          b.cities.add(canonicalCityName(v.city, v.country).toLowerCase());
+        }
         if (s.isEncore) b.isEncoreCount += 1;
         if (s.isCover) {
           b.coverCount += 1;
@@ -1202,8 +1209,9 @@ export async function getFullStatistics(): Promise<FullStatistics> {
       venueArtistSet.get(r.venueId)!.add(r.artistId);
       const v = venueRow.get(r.venueId);
       if (v?.city) {
-        citySet.add(v.city.toLowerCase());
-        cityCount.set(v.city, (cityCount.get(v.city) ?? 0) + 1);
+        const statCity = canonicalCityName(v.city, v.country);
+        citySet.add(statCity.toLowerCase());
+        cityCount.set(statCity, (cityCount.get(statCity) ?? 0) + 1);
       }
       if (v?.country) {
         countrySet.add(v.country.toLowerCase());
@@ -1278,7 +1286,7 @@ export async function getFullStatistics(): Promise<FullStatistics> {
         lng: v.lng,
         weight: concertCount,
         venueName: v.name,
-        city: v.city,
+        city: canonicalCityName(v.city, v.country),
         country: v.country,
         concertCount,
         artistNames: names,

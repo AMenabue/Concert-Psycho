@@ -1,6 +1,12 @@
 "use server";
 
 import { formatDepartureChoiceLabel } from "@/lib/dashboard/format-departure-choice-label";
+import {
+  canonicalVenueFromSetlist,
+  metroCityMatchKeys,
+  sameVenueIdentity,
+  venueImportIdentityKey,
+} from "@/lib/geo/canonical-location";
 import { travelKmFromDepartureCityToVenue } from "@/lib/geo/travel-from-departure-city";
 import { daysInAdvanceFromPurchase } from "@/lib/ticket-purchase-date";
 import { nominatimSearchFirst } from "@/lib/geocoding/nominatim";
@@ -138,6 +144,85 @@ export async function findVenueBySetlistfmVenueId(
     .maybeSingle();
   if (error || !data) return null;
   return data as VenueRow;
+}
+
+/** Match venue across Setlist.fm renames and metro suburbs (same place, one row). */
+export async function findVenueForSetlistImport(params: {
+  setlistfmVenueId: string | null;
+  name: string;
+  city: string;
+  country: string;
+}): Promise<VenueRow | null> {
+  const slId = params.setlistfmVenueId?.trim();
+  if (slId) {
+    const byId = await findVenueBySetlistfmVenueId(slId);
+    if (byId) return byId;
+  }
+
+  const canon = canonicalVenueFromSetlist({
+    name: params.name,
+    city: params.city,
+    country: params.country,
+  });
+  const targetKey = venueImportIdentityKey(
+    canon.name,
+    canon.city,
+    params.country,
+  );
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const cityTerms = new Set<string>();
+  for (const t of metroCityMatchKeys(params.city, params.country)) {
+    cityTerms.add(t);
+  }
+  cityTerms.add(canon.city);
+  cityTerms.add(params.city.trim());
+
+  const candidates = new Map<string, VenueRow>();
+  for (const term of Array.from(cityTerms)) {
+    if (!term.trim()) continue;
+    const pattern = `%${escapeIlike(term.trim())}%`;
+    const { data: rows } = await supabase
+      .from("venues")
+      .select("id,name,city,country,lat,lng,setlistfm_venue_id")
+      .ilike("city", pattern)
+      .limit(40);
+    for (const row of rows ?? []) {
+      candidates.set(row.id as string, row as VenueRow);
+    }
+  }
+
+  const namePattern = `%${escapeIlike(canon.name.slice(0, 24))}%`;
+  if (canon.name.length >= 3) {
+    const { data: byName } = await supabase
+      .from("venues")
+      .select("id,name,city,country,lat,lng,setlistfm_venue_id")
+      .ilike("name", namePattern)
+      .limit(30);
+    for (const row of byName ?? []) {
+      candidates.set(row.id as string, row as VenueRow);
+    }
+  }
+
+  for (const row of Array.from(candidates.values())) {
+    const rowKey = venueImportIdentityKey(row.name, row.city, row.country);
+    if (rowKey === targetKey) return row;
+    if (
+      sameVenueIdentity(
+        { name: row.name, city: row.city, country: row.country },
+        { name: canon.name, city: canon.city, country: params.country },
+      )
+    ) {
+      return row;
+    }
+  }
+
+  return null;
 }
 
 const USER_CONCERT_SUGGEST_FIELDS = ["tour_name", "sector"] as const;
@@ -809,8 +894,13 @@ export async function persistNewConcert(
     }
     venueId = payload.venueId.trim();
   } else {
-    const vName = payload.newVenueName?.trim() ?? "";
-    const city = payload.newVenueCity?.trim() ?? "";
+    const rawVenue = canonicalVenueFromSetlist({
+      name: payload.newVenueName?.trim() ?? "",
+      city: payload.newVenueCity?.trim() ?? "",
+      country: payload.newVenueCountry?.trim() ?? "",
+    });
+    const vName = rawVenue.name;
+    const city = rawVenue.city;
     const country = payload.newVenueCountry?.trim() ?? "";
     let lat = Number.parseFloat(
       (payload.newVenueLat ?? "").replace(",", "."),

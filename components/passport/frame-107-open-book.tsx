@@ -1,8 +1,8 @@
 "use client";
 
 import { Music2 } from "lucide-react";
-import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode, RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   formatMusicHours,
   type DashboardPassportNumbers,
@@ -22,6 +22,8 @@ export type Frame107Props = {
   placeOfIssue?: string;
   /** Recent concerts → stamps on pages 3, 4, 5, ... (paged). */
   stamps?: PassportStampPreview[];
+  /** Applied to the measurement viewport (should fill available space from the page layout). */
+  className?: string;
 };
 
 const inter = "var(--font-passport2-inter), ui-sans-serif, system-ui, sans-serif";
@@ -32,6 +34,34 @@ const kode = "var(--font-passport2-kode), ui-monospace, monospace";
 const HINGE_Y = 254;
 const CARD_W = 380;
 const CARD_H = 498;
+
+/** Uniform scale so the fixed-layout card fits its container without stretching. */
+function usePassportScale(containerRef: RefObject<HTMLDivElement | null>) {
+  const [scale, setScale] = useState(1);
+
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if (w < 1 || h < 1) return;
+      setScale(Math.min(1, w / CARD_W, h / CARD_H));
+    };
+
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener("resize", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, [containerRef]);
+
+  return scale;
+}
 
 /** Mini note row: top halves stay tight to the outer edge (original look). */
 const NOTE_STRIP_TOP_INSET_PX = 6;
@@ -325,7 +355,10 @@ export function Frame107OpenBook({
   issuedTodayMrz,
   placeOfIssue: placeOfIssueProp = "—",
   stamps = [],
+  className,
 }: Frame107Props) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const scale = usePassportScale(viewportRef);
   /**
    * pageIndex semantics:
    *   0 → spread 1 (page 1 cover top, page 2 data bottom)
@@ -429,14 +462,24 @@ export function Frame107OpenBook({
 
   return (
     <div
-      className="relative shrink-0"
-      style={{ width: CARD_W, maxWidth: "min(380px, calc(100vw - 32px))" }}
-      data-figma-node="Frame-107"
+      ref={viewportRef}
+      className={className ? `flex w-full items-start justify-center ${className}` : "flex w-full items-start justify-center"}
+      data-passport-viewport
     >
       <div
-        className="relative mx-auto"
-        style={{ width: CARD_W, height: CARD_H }}
+        className="relative shrink-0"
+        style={{ width: CARD_W * scale, height: CARD_H * scale }}
+        data-figma-node="Frame-107"
       >
+        <div
+          className="absolute left-1/2 top-0"
+          style={{
+            width: CARD_W,
+            height: CARD_H,
+            transform: `translateX(-50%) scale(${scale})`,
+            transformOrigin: "top center",
+          }}
+        >
         {/* Card shadow */}
         <div
           className="pointer-events-none absolute inset-0 rounded-[11px] bg-white"
@@ -777,6 +820,7 @@ export function Frame107OpenBook({
           style={{ top: HINGE_Y, zIndex: 50 }}
           aria-hidden
         />
+        </div>
       </div>
     </div>
   );

@@ -41,7 +41,7 @@ export default function FlightyHomeClient({ points, appHome }: Props) {
     sheetShadow,
     "backdrop-blur-[35.25px] transition-[top,background-color] duration-300 ease-out",
     "bg-[rgba(19,19,19,0.99)]",
-    mapRevealed ? "top-[min(622px,58vh)]" : "top-[230px]",
+    mapRevealed ? "top-[min(622px,58vh)]" : "top-[115px]",
     "bottom-0",
   ].join(" ");
 
@@ -70,7 +70,7 @@ export default function FlightyHomeClient({ points, appHome }: Props) {
         type="button"
         onClick={toggleMap}
         aria-label={mapRevealed ? "Mostra di nuovo la scheda" : "Mostra la heat map"}
-        className={`absolute right-5 top-[47px] z-40 ${mapToggleBtnClass}`}
+        className={`absolute right-5 top-[calc(env(safe-area-inset-top,0px)+12px)] z-40 ${mapToggleBtnClass}`}
       >
         <FoldedMapIcon className="shrink-0" />
       </button>

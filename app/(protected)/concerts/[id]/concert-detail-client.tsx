@@ -12,6 +12,7 @@ import {
   hasSavedDeparture,
 } from "@/lib/departure/preset-utils";
 import { formatHm } from "@/components/stats/stat-primitives";
+import { APP_SUBPAGE_HEADER_STYLE } from "@/lib/app-subpage-layout";
 import { formatConcertDateWithWeekday } from "@/lib/format-concert-date";
 import { purchaseDateInputFromDaysInAdvance } from "@/lib/ticket-purchase-date";
 import type { ConcertDetailPage, ConcertSongRow } from "./actions";
@@ -182,7 +183,10 @@ export function ConcertDetailClient(props: { initial: ConcertDetailPage }) {
 
   return (
     <div className="mx-auto w-full max-w-[430px] pb-16 text-white">
-      <header className="relative z-10 flex w-full flex-row items-center justify-between gap-4 px-6 pt-12">
+      <header
+        className="relative z-10 flex w-full flex-row items-center justify-between gap-4 px-6"
+        style={APP_SUBPAGE_HEADER_STYLE}
+      >
         <Link
           href="/concerts"
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition hover:bg-white/10"

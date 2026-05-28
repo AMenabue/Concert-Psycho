@@ -1,3 +1,4 @@
+import { canonicalVenueFromSetlist } from "@/lib/geo/canonical-location";
 import { planBillingHeadliners } from "@/lib/gigs/billing-headliners";
 import {
   extractSetlistPersistMeta,
@@ -35,8 +36,13 @@ export function buildAutoImportPayloadFromSetlist(
   const meta = extractSetlistPersistMeta(sl);
   const iso = setlistEventDateToIso(sl.eventDate) ?? "";
   const v = sl.venue;
-  const city = v?.city?.name?.trim() ?? "";
+  const cityRaw = v?.city?.name?.trim() ?? "";
   const country = v?.city?.country?.name?.trim() ?? "";
+  const canonVenue = canonicalVenueFromSetlist({
+    name: v?.name?.trim() ?? "",
+    city: cityRaw,
+    country,
+  });
   const lat = v?.city?.coords?.lat;
   const lng = v?.city?.coords?.long;
 
@@ -48,8 +54,8 @@ export function buildAutoImportPayloadFromSetlist(
     newArtistName: billing?.primaryName ?? sl.artist?.name?.trim() ?? "",
     newArtistGenre: "",
     venueMode: "create",
-    newVenueName: v?.name?.trim() ?? "",
-    newVenueCity: city,
+    newVenueName: canonVenue.name,
+    newVenueCity: canonVenue.city,
     newVenueCountry: country,
     newVenueLat: typeof lat === "number" ? String(lat) : "",
     newVenueLng: typeof lng === "number" ? String(lng) : "",

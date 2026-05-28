@@ -8,7 +8,15 @@ import {
   type HeatmapClickSelection,
   type VenueHeatmapCityCluster,
 } from "@/lib/map/venue-heatmap-clusters";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   CircleMarker,
   MapContainer,
@@ -175,81 +183,129 @@ function HeatLayer({ points }: { points: VenueHeatmapSpot[] }) {
   return null;
 }
 
+const MAP_CARD_GRADIENT =
+  "linear-gradient(238.93deg, rgb(206, 223, 240) 4.67%, rgb(195, 199, 248) 68.8%)";
+const mapCardMono = "font-[family-name:var(--font-flighty-chivo),ui-monospace,monospace]";
+
+function MapInsightCardShell(props: { children: ReactNode; className?: string }) {
+  return (
+    <div
+      className={`relative w-[min(268px,calc(100vw-40px))] overflow-hidden rounded-[16px] px-5 pb-4 pt-5 text-left shadow-lg ring-1 ring-black/8 ${props.className ?? ""}`}
+      style={{ backgroundImage: MAP_CARD_GRADIENT }}
+    >
+      <div
+        className="pointer-events-none absolute inset-0 opacity-40"
+        style={{
+          background:
+            "radial-gradient(ellipse 85% 60% at 12% 0%, rgba(255,255,255,0.55) 0%, transparent 55%)",
+        }}
+        aria-hidden
+      />
+      <div className="relative z-[1]">{props.children}</div>
+    </div>
+  );
+}
+
+function MapStatPair(props: { label: string; value: string }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <p className="text-[12px] font-light leading-[15px] text-[rgba(25,78,118,0.58)]">
+        {props.label}
+      </p>
+      <p
+        className={`${mapCardMono} text-[22px] font-semibold leading-[26px] tracking-tight text-[#003c63] tabular-nums`}
+      >
+        {props.value}
+      </p>
+    </div>
+  );
+}
+
 function CityHeatPopup({ cluster }: { cluster: VenueHeatmapCityCluster }) {
   const location = [cluster.city, cluster.country].filter(Boolean).join(", ");
-  const concertLabel =
-    cluster.concertCount === 1
-      ? "1 concerto"
-      : `${cluster.concertCount} concerti`;
-  const artistLabel =
-    cluster.artistNames.length === 1
-      ? "1 artista visto"
-      : `${cluster.artistNames.length} artisti visti`;
   const listedVenues = cluster.venues.slice(0, 8);
   const moreVenues = cluster.venues.length - listedVenues.length;
 
   return (
-    <div className="max-w-[220px] rounded-[12px] border border-white/[0.08] bg-[#1a1a1a] px-3 py-2.5 text-left shadow-md">
+    <MapInsightCardShell>
       {location ? (
-        <p className="text-[14px] font-semibold leading-tight text-white">{location}</p>
+        <p
+          className={`${mapCardMono} text-[26px] font-normal leading-[30px] tracking-tight text-[#003c63]`}
+        >
+          {location}
+        </p>
       ) : null}
-      <p className="mt-1.5 text-[12px] font-medium text-[#7aa2ff]">{concertLabel}</p>
-      <p className="mt-0.5 text-[11px] text-neutral-400">{artistLabel}</p>
+      <div className="mt-3 flex flex-wrap gap-x-8 gap-y-2">
+        <MapStatPair label="Concerts" value={String(cluster.concertCount)} />
+        <MapStatPair label="Artists seen" value={String(cluster.artistNames.length)} />
+      </div>
       {listedVenues.length > 0 ? (
-        <ul className="mt-2 space-y-0.5 border-t border-white/[0.06] pt-2">
+        <ul className="mt-3 space-y-1 border-t border-[#003c63]/12 pt-3">
           {listedVenues.map((venue) => (
             <li
               key={venue.name}
-              className="truncate text-[11px] leading-snug text-neutral-300"
+              className="truncate text-[14px] font-light leading-[18px] text-[#003c63]/90"
             >
               {venue.name}
               {venue.concertCount > 1 ? (
-                <span className="text-neutral-500"> · {venue.concertCount}</span>
+                <span className="text-[rgba(25,78,118,0.5)]"> · {venue.concertCount}</span>
               ) : null}
             </li>
           ))}
           {moreVenues > 0 ? (
-            <li className="text-[10px] text-neutral-600">+{moreVenues} altre venue</li>
+            <li className="pt-0.5 text-[12px] font-light text-[rgba(25,78,118,0.55)]">
+              +{moreVenues} more venues
+            </li>
           ) : null}
         </ul>
       ) : null}
-    </div>
+    </MapInsightCardShell>
   );
 }
 
 function VenueHeatPopup({ spot }: { spot: VenueHeatmapSpot }) {
   const location = [spot.city, spot.country].filter(Boolean).join(", ");
-  const concertLabel =
-    spot.concertCount === 1 ? "1 concert" : `${spot.concertCount} concerts`;
   const artists = spot.artistNames.slice(0, 6);
   const more = spot.artistNames.length - artists.length;
 
   return (
-    <div className="max-w-[188px] rounded-[12px] border border-white/[0.08] bg-[#1a1a1a] px-3 py-2.5 text-left shadow-md">
-      <p className="text-[14px] font-semibold leading-tight text-white">{spot.venueName}</p>
+    <MapInsightCardShell className="w-[min(248px,calc(100vw-40px))]">
+      <p
+        className={`${mapCardMono} text-[22px] font-normal leading-[26px] tracking-tight text-[#003c63]`}
+      >
+        {spot.venueName}
+      </p>
       {location ? (
-        <p className="mt-0.5 text-[11px] leading-snug text-neutral-500">{location}</p>
+        <p className="mt-1 text-[14px] font-light leading-[17px] text-[rgba(25,78,118,0.58)]">
+          {location}
+        </p>
       ) : null}
-      <p className="mt-1.5 text-[12px] font-medium text-[#7aa2ff]">{concertLabel}</p>
+      <div className="mt-3">
+        <MapStatPair label="Concerts" value={String(spot.concertCount)} />
+      </div>
       {artists.length > 0 ? (
-        <ul className="mt-2 space-y-0.5 border-t border-white/[0.06] pt-2">
-          {artists.map((name) => (
-            <li
-              key={name}
-              className="truncate text-[11px] leading-snug text-neutral-400"
-              style={{
-                fontFamily: "var(--font-flighty-chivo), ui-monospace, monospace",
-              }}
-            >
-              {name}
-            </li>
-          ))}
-          {more > 0 ? (
-            <li className="text-[10px] text-neutral-600">+{more} more</li>
-          ) : null}
-        </ul>
+        <>
+          <p className="mt-3 border-t border-[#003c63]/12 pt-3 text-[12px] font-light text-[rgba(25,78,118,0.58)]">
+            Artists seen
+          </p>
+          <ul className="mt-1.5 space-y-1">
+            {artists.map((name) => (
+              <li
+                key={name}
+                className={`${mapCardMono} truncate text-[14px] font-normal leading-[18px] text-[#003c63]/88`}
+              >
+                {name}
+              </li>
+            ))}
+            {more > 0 ? (
+              <li className="text-[12px] font-light text-[rgba(25,78,118,0.55)]">
+                +{more} more
+              </li>
+            ) : null}
+          </ul>
+        </>
       ) : null}
-    </div>
+    </MapInsightCardShell>
   );
 }
 
@@ -363,8 +419,8 @@ function HeatmapClickLayer({
           className="venue-heat-popup"
           closeButton={false}
           autoPan
-          minWidth={160}
-          maxWidth={220}
+          minWidth={200}
+          maxWidth={288}
           eventHandlers={{ remove: () => setSelection(null) }}
         >
           {selection.kind === "city" ? (

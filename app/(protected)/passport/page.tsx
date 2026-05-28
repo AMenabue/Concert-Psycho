@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Frame107OpenBook } from "@/components/passport/frame-107-open-book";
+import { APP_SUBPAGE_HEADER_STYLE } from "@/lib/app-subpage-layout";
 import { getDashboardStatistics } from "@/lib/statistics/dashboard-stats";
 import {
   getDashboardDisplayName,
@@ -56,13 +57,16 @@ export default async function PassportPage() {
   const issuedTodayMrz = formatDateMrzCompact(new Date());
 
   return (
-    <main className="relative min-h-[100dvh] w-full overflow-x-hidden bg-[#0C0C21] text-white">
+    <main className="relative flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden bg-[#0C0C21] text-white">
       <div
         className="pointer-events-none absolute left-1/2 top-[5px] h-[211px] w-[202px] -translate-x-1/2 rounded-full bg-gradient-to-b from-[rgba(113,58,255,0.75)] to-[rgba(57,76,255,0.75)] blur-[74px]"
         aria-hidden
       />
 
-      <header className="relative z-10 mx-auto flex w-full max-w-[430px] flex-row items-center justify-between gap-4 px-6 pt-[85px]">
+      <header
+        className="relative z-10 mx-auto flex w-full max-w-[430px] shrink-0 flex-row items-center justify-between gap-4 px-6"
+        style={APP_SUBPAGE_HEADER_STYLE}
+      >
         <Link
           href="/"
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition hover:bg-white/10"
@@ -85,8 +89,9 @@ export default async function PassportPage() {
         </button>
       </header>
 
-      <div className="relative z-10 mx-auto mt-[74px] flex justify-center px-4 pb-4">
+      <div className="relative z-10 mx-auto flex min-h-0 w-full max-w-[430px] flex-1 justify-center px-4 pt-2">
         <Frame107OpenBook
+          className="h-full w-full"
           passport={passport}
           stats={stats}
           issuedLabel={issuedLabel}
@@ -97,7 +102,7 @@ export default async function PassportPage() {
         />
       </div>
 
-      <p className="relative z-10 mx-auto max-w-[430px] px-6 pb-12 pt-6 text-center text-xs text-neutral-400">
+      <p className="relative z-10 mx-auto max-w-[430px] shrink-0 px-6 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 text-center text-xs text-neutral-400">
         Tap the lower or upper part of the passport to flip pages.
       </p>
     </main>

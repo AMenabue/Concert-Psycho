@@ -1,5 +1,6 @@
+import { APP_SUBPAGE_HEADER_STYLE } from "@/lib/app-subpage-layout";
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 export function ChevronBackIcon() {
   return (
@@ -22,18 +23,13 @@ type Props = {
   trailing?: ReactNode;
 };
 
-/** Inline style so the top inset always renders, regardless of Tailwind JIT scanning. */
-const HEADER_STYLE: CSSProperties = {
-  paddingTop: "max(30px, calc(env(safe-area-inset-top, 0px) + 12px))",
-};
-
 export function AppSubpageHeader(props: Props) {
   const { title, backHref, backLabel, trailing } = props;
 
   return (
     <header
       className="relative z-10 mx-auto flex w-full max-w-[430px] flex-row items-center justify-between gap-4 px-6"
-      style={HEADER_STYLE}
+      style={APP_SUBPAGE_HEADER_STYLE}
     >
       <Link
         href={backHref}

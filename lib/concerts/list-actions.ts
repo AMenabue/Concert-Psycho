@@ -5,6 +5,7 @@ import {
   resolveGigBillingRoles,
   type LineupRowInput,
 } from "@/lib/gigs/billing-headliners";
+import { canonicalCityName } from "@/lib/geo/canonical-location";
 import { parseSetlistSongInfo } from "@/lib/setlistfm/parse";
 import { createClient } from "@/lib/supabase/server";
 
@@ -200,11 +201,13 @@ export async function listMyConcerts(): Promise<DashboardConcertRow[]> {
   if (venueIds.length > 0) {
     const { data: venues } = await supabase
       .from("venues")
-      .select("id,name,city")
+      .select("id,name,city,country")
       .in("id", venueIds);
     for (const v of venues ?? []) {
       const name = String((v as { name?: string }).name ?? "").trim();
-      const city = String((v as { city?: string }).city ?? "").trim();
+      const cityRaw = String((v as { city?: string }).city ?? "").trim();
+      const country = String((v as { country?: string }).country ?? "").trim();
+      const city = canonicalCityName(cityRaw, country);
       venueLabelById.set(
         (v as { id: string }).id,
         [name, city].filter(Boolean).join(", "),
