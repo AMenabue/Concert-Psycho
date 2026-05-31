@@ -1,4 +1,9 @@
 import { formatConcertDateWithWeekday } from "@/lib/format-concert-date";
+import {
+  formatGigHeadlinerDisplay,
+  resolveGigBillingRoles,
+  type LineupRowInput,
+} from "@/lib/gigs/billing-headliners";
 import { createClient } from "@/lib/supabase/server";
 import type {
   DashboardPassportNumbers,
@@ -312,12 +317,18 @@ export async function getPassportStampPreviews(max = 50): Promise<PassportStampP
 
   const { data: gigs, error: gigErr } = await supabase
     .from("gigs")
-    .select("id, gig_date, artist_id, venue_id")
+    .select("id, gig_date, artist_id, venue_id, source")
     .in("id", gigIds);
 
   if (gigErr || !gigs?.length) return [];
 
-  type GigRow = { id: string; gig_date: string; artist_id: string; venue_id: string };
+  type GigRow = {
+    id: string;
+    gig_date: string;
+    artist_id: string;
+    venue_id: string;
+    source: string | null;
+  };
   const gigById = new Map((gigs as GigRow[]).map((g) => [g.id, g]));
 
   type Flat = {
@@ -326,6 +337,7 @@ export async function getPassportStampPreviews(max = 50): Promise<PassportStampP
     gig_date: string;
     artist_id: string;
     venue_id: string;
+    source: string | null;
   };
 
   const flat = (attendances as { id: string; gig_id: string }[])
@@ -338,6 +350,7 @@ export async function getPassportStampPreviews(max = 50): Promise<PassportStampP
         gig_date: g.gig_date,
         artist_id: g.artist_id,
         venue_id: g.venue_id,
+        source: g.source ?? null,
       };
     })
     .filter((x): x is Flat => x != null)
@@ -362,6 +375,88 @@ export async function getPassportStampPreviews(max = 50): Promise<PassportStampP
   for (const a of artists ?? []) {
     artistNameById.set(a.id as string, String((a as { name?: string }).name ?? "").trim() || "Artist");
   }
+
+  const gigIdsForLineup = Array.from(new Set(flat.map((r) => r.gigId)));
+  const lineupByGigId = new Map<string, LineupRowInput[]>();
+
+  if (gigIdsForLineup.length > 0) {
+    type LineupDbRow = {
+      gig_id: string;
+      artist_id: string;
+      is_co_headliner?: boolean;
+    };
+
+    let lineupRows: LineupDbRow[] | null = null;
+    const lineupRes = await supabase
+      .from("gig_lineup_artists")
+      .select("gig_id, artist_id, is_co_headliner")
+      .in("gig_id", gigIdsForLineup);
+
+    if (!lineupRes.error) {
+      lineupRows = (lineupRes.data as LineupDbRow[] | null) ?? null;
+    } else {
+      const plain = await supabase
+        .from("gig_lineup_artists")
+        .select("gig_id, artist_id")
+        .in("gig_id", gigIdsForLineup);
+      lineupRows = (plain.data as LineupDbRow[] | null) ?? null;
+    }
+
+    const extraLineupArtistIds = new Set<string>();
+    for (const lr of lineupRows ?? []) {
+      const aid = String(lr.artist_id ?? "").trim();
+      if (aid && !artistNameById.has(aid)) extraLineupArtistIds.add(aid);
+    }
+    if (extraLineupArtistIds.size > 0) {
+      const { data: lineupArtists } = await supabase
+        .from("artists")
+        .select("id,name")
+        .in("id", Array.from(extraLineupArtistIds));
+      for (const a of lineupArtists ?? []) {
+        artistNameById.set(
+          a.id as string,
+          String((a as { name?: string }).name ?? "").trim() || "Artist",
+        );
+      }
+    }
+
+    for (const lr of lineupRows ?? []) {
+      const gid = lr.gig_id as string;
+      if (!lineupByGigId.has(gid)) lineupByGigId.set(gid, []);
+      lineupByGigId.get(gid)!.push({
+        artist_id: lr.artist_id as string,
+        is_co_headliner: Boolean(lr.is_co_headliner),
+      });
+    }
+  }
+
+  const { data: ampersandRows } = await supabase
+    .from("artists")
+    .select("id, name")
+    .or("name.ilike.% & %,name.ilike.% / %")
+    .limit(80);
+  const ampersandArtists = (ampersandRows ?? []).map((row) => ({
+    name: String((row as { name?: string }).name ?? "").trim(),
+  }));
+
+  const headlinerDisplayByGig = new Map<string, string>();
+  for (const r of flat) {
+    const aid = String(r.artist_id ?? "").trim();
+    if (!aid) continue;
+    const roles = resolveGigBillingRoles(
+      aid,
+      artistNameById.get(aid) ?? "",
+      lineupByGigId.get(r.gigId) ?? [],
+      artistNameById,
+      r.source,
+      ampersandArtists,
+    );
+    headlinerDisplayByGig.set(
+      r.gigId,
+      formatGigHeadlinerDisplay(roles, artistNameById, aid),
+    );
+  }
+
   const venueLabelById = new Map<string, string>();
   for (const v of venues ?? []) {
     const name = String((v as { name?: string }).name ?? "").trim();
@@ -376,10 +471,13 @@ export async function getPassportStampPreviews(max = 50): Promise<PassportStampP
     const dateLabel = formatConcertDateWithWeekday(r.gig_date);
     const aid = String(r.artist_id ?? "");
     const vid = String(r.venue_id ?? "");
+    const displayArtist =
+      headlinerDisplayByGig.get(r.gigId) ??
+      (aid ? (artistNameById.get(aid) ?? "Artist") : "Artist");
     return {
       attendanceId: r.attendanceId,
       gigId: r.gigId,
-      artistName: aid ? (artistNameById.get(aid) ?? "Artist") : "Artist",
+      artistName: displayArtist,
       venueLabel: vid ? (venueLabelById.get(vid) ?? "—") : "—",
       artistId: aid || "unknown-artist",
       venueId: vid || "unknown-venue",
