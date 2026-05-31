@@ -130,6 +130,8 @@ export type RankedItem = {
   name: string;
   value: number;
   detail?: string | null;
+  /** Small grey text shown right after the name (e.g. the artist of a song). */
+  sublabel?: string | null;
 };
 
 export function RankedList(props: {
@@ -174,9 +176,9 @@ export function RankedList(props: {
                   style={{ width: `${pct}%`, background: barBg }}
                 />
               ) : null}
-              <div className="relative z-10 flex min-w-0 items-center gap-3">
+              <div className="relative z-10 flex min-w-0 items-baseline gap-x-2.5">
                 <span
-                  className="w-5 shrink-0 text-[12px] font-medium"
+                  className="w-5 shrink-0 self-center text-[12px] font-medium"
                   style={{ ...MONO_STYLE, color: accent === "default" ? "#737373" : color }}
                 >
                   {String(i + 1).padStart(2, "0")}
@@ -184,6 +186,11 @@ export function RankedList(props: {
                 <span className="min-w-0 truncate text-[14px] font-medium text-white">
                   {item.name}
                 </span>
+                {item.sublabel ? (
+                  <span className="shrink-0 truncate text-[12px] font-normal text-neutral-500">
+                    {item.sublabel}
+                  </span>
+                ) : null}
               </div>
               <span
                 className="relative z-10 shrink-0 text-[13px] font-semibold"

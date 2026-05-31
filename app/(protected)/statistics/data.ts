@@ -13,6 +13,7 @@ import {
   type LineupRowInput,
 } from "@/lib/gigs/billing-headliners";
 import { canonicalCityName } from "@/lib/geo/canonical-location";
+import { countryDisplayName } from "@/lib/geo/country-names";
 import { repairCombinedBillingGigsForUser } from "@/lib/gigs/repair-billing-gigs";
 import { repairCanonicalVenueLocationsForUser } from "@/lib/venues/repair-canonical-locations";
 import { createClient } from "@/lib/supabase/server";
@@ -25,6 +26,8 @@ export type NamedValue<V = number> = {
   name: string;
   value: V;
   detail?: string | null;
+  /** Small grey text shown after the name (e.g. the artist for a song). */
+  sublabel?: string | null;
 };
 
 export type ConcertRef = {
@@ -528,6 +531,25 @@ export async function getFullStatistics(): Promise<FullStatistics> {
     }
   }
 
+  /* Collapse duplicate artist rows that share the same display name
+     (e.g. two "Gemitaiz" rows from different imports) onto a single id so
+     they are counted once in rankings and as one distinct artist per venue. */
+  const canonicalArtistId = new Map<string, string>();
+  {
+    const firstIdForName = new Map<string, string>();
+    const sortedIds = Array.from(artistName.keys()).sort();
+    for (const aid of sortedIds) {
+      const key = (artistName.get(aid) ?? "").trim().toLowerCase();
+      if (!key) {
+        canonicalArtistId.set(aid, aid);
+        continue;
+      }
+      if (!firstIdForName.has(key)) firstIdForName.set(key, aid);
+      canonicalArtistId.set(aid, firstIdForName.get(key)!);
+    }
+  }
+  const canonAid = (aid: string): string => canonicalArtistId.get(aid) ?? aid;
+
   /* Index songs and lineup by gig */
   const songsByGig = new Map<
     string,
@@ -661,6 +683,19 @@ export async function getFullStatistics(): Promise<FullStatistics> {
       country: v?.country ?? "",
     };
   };
+
+  /** Headliner display label per gig (e.g. "Mostro" or "Lowlow & Mostro"). */
+  const headlinerDisplayByGig = new Map<string, string>();
+  for (const r of liveFlat) {
+    if (headlinerDisplayByGig.has(r.gigId)) continue;
+    const roles = billingRolesByGig.get(r.gigId);
+    headlinerDisplayByGig.set(
+      r.gigId,
+      roles != null
+        ? formatGigHeadlinerDisplay(roles, artistName, r.artistId)
+        : (artistName.get(r.artistId) ?? "Artist"),
+    );
+  }
 
   /* ============================================================== */
   /* CONCERTS                                                        */
@@ -848,14 +883,14 @@ export async function getFullStatistics(): Promise<FullStatistics> {
     for (const r of liveFlat) {
       const roles = billingRolesByGig.get(r.gigId)!;
       const headIds = new Set([
-        roles.primaryArtistId,
-        ...roles.coHeadlinerArtistIds,
+        canonAid(roles.primaryArtistId),
+        ...roles.coHeadlinerArtistIds.map(canonAid),
       ]);
       // Always credit the gig's stored headliner when it is a single real artist
       // (e.g. Setlist.fm import "Mostro" on a Lowlow & Mostro co-bill).
       const gigHeadName = artistName.get(r.artistId) ?? "";
       if (r.artistId && !isCombinedBillingArtistName(gigHeadName)) {
-        headIds.add(r.artistId);
+        headIds.add(canonAid(r.artistId));
       }
       for (const aid of Array.from(headIds)) {
         headCount.set(aid, (headCount.get(aid) ?? 0) + 1);
@@ -892,12 +927,15 @@ export async function getFullStatistics(): Promise<FullStatistics> {
     for (const r of liveFlat) {
       const roles = billingRolesByGig.get(r.gigId)!;
       const headIds = new Set([
-        roles.primaryArtistId,
-        ...roles.coHeadlinerArtistIds,
+        canonAid(roles.primaryArtistId),
+        ...roles.coHeadlinerArtistIds.map(canonAid),
       ]);
       const ids = guestByGig.get(r.gigId) ?? new Set<string>();
-      Array.from(ids).forEach((aid) => {
-        if (headIds.has(aid)) return;
+      const seenGuest = new Set<string>();
+      Array.from(ids).forEach((rawAid) => {
+        const aid = canonAid(rawAid);
+        if (headIds.has(aid) || seenGuest.has(aid)) return;
+        seenGuest.add(aid);
         guestAppearances.set(aid, (guestAppearances.get(aid) ?? 0) + 1);
       });
     }
@@ -905,8 +943,12 @@ export async function getFullStatistics(): Promise<FullStatistics> {
     const lineupAppearances = new Map<string, number>();
     for (const r of liveFlat) {
       const roles = billingRolesByGig.get(r.gigId)!;
+      const seenLineup = new Set<string>();
       for (const sid of roles.supportLineupArtistIds) {
-        lineupAppearances.set(sid, (lineupAppearances.get(sid) ?? 0) + 1);
+        const aid = canonAid(sid);
+        if (seenLineup.has(aid)) continue;
+        seenLineup.add(aid);
+        lineupAppearances.set(aid, (lineupAppearances.get(aid) ?? 0) + 1);
       }
     }
 
@@ -1072,10 +1114,12 @@ export async function getFullStatistics(): Promise<FullStatistics> {
       isEncoreCount: number;
       coverCount: number;
       guestCount: number;
+      encoreArtists: Map<string, number>;
     };
     const bag = new Map<string, Bag>();
-    const openerByGig = new Map<string, string>();
-    const closerByGig = new Map<string, string>();
+    // gigId → { title, artist } for opener / closer of that show
+    const openerByGig = new Map<string, { title: string; artist: string }>();
+    const closerByGig = new Map<string, { title: string; artist: string }>();
     const setNameMap = new Map<string, number>();
     let totalSongRows = 0;
     let coverCount = 0;
@@ -1083,14 +1127,15 @@ export async function getFullStatistics(): Promise<FullStatistics> {
 
     for (const r of liveFlat) {
       const arr = songsByGig.get(r.gigId) ?? [];
+      const gigArtist = headlinerDisplayByGig.get(r.gigId) ?? "";
       // Find opener (lowest position, not tape) and closer (highest position, not tape, non-encore preferred)
       const live = arr.filter((s) => !s.isTape && s.title);
       if (live.length > 0) {
         const sortedByPos = [...live].sort((a, b) => a.position - b.position);
-        openerByGig.set(r.gigId, sortedByPos[0].title);
+        openerByGig.set(r.gigId, { title: sortedByPos[0].title, artist: gigArtist });
         const lastNonEnc = [...sortedByPos].reverse().find((s) => !s.isEncore);
         const lastAny = sortedByPos[sortedByPos.length - 1];
-        closerByGig.set(r.gigId, (lastNonEnc ?? lastAny).title);
+        closerByGig.set(r.gigId, { title: (lastNonEnc ?? lastAny).title, artist: gigArtist });
       }
 
       const v = venueRow.get(r.venueId);
@@ -1107,6 +1152,7 @@ export async function getFullStatistics(): Promise<FullStatistics> {
             isEncoreCount: 0,
             coverCount: 0,
             guestCount: 0,
+            encoreArtists: new Map(),
           });
         }
         const b = bag.get(key)!;
@@ -1115,7 +1161,10 @@ export async function getFullStatistics(): Promise<FullStatistics> {
         if (v?.city) {
           b.cities.add(canonicalCityName(v.city, v.country).toLowerCase());
         }
-        if (s.isEncore) b.isEncoreCount += 1;
+        if (s.isEncore) {
+          b.isEncoreCount += 1;
+          if (gigArtist) b.encoreArtists.set(gigArtist, (b.encoreArtists.get(gigArtist) ?? 0) + 1);
+        }
         if (s.isCover) {
           b.coverCount += 1;
           coverCount += 1;
@@ -1156,20 +1205,47 @@ export async function getFullStatistics(): Promise<FullStatistics> {
       8,
     );
 
-    const openerMap = new Map<string, number>();
-    openerByGig.forEach((t) => openerMap.set(t, (openerMap.get(t) ?? 0) + 1));
-    const closerMap = new Map<string, number>();
-    closerByGig.forEach((t) => closerMap.set(t, (closerMap.get(t) ?? 0) + 1));
-    const encoreMap = new Map<string, number>();
-    for (const b of allBags) {
-      if (b.isEncoreCount > 0) encoreMap.set(b.display, b.isEncoreCount);
-    }
+    const topArtistLabel = (artists: Map<string, number>): string | null => {
+      const sorted = Array.from(artists.entries()).sort(
+        (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+      );
+      if (sorted.length === 0) return null;
+      if (sorted.length === 1) return sorted[0]![0];
+      return `${sorted[0]![0]} +${sorted.length - 1}`;
+    };
 
-    const mkFromMap = (m: Map<string, number>): NamedValue[] =>
-      topN(
-        Array.from(m.entries()).map(([name, value]) => ({ name, value })),
+    const mkSetStructure = (
+      perGig: Map<string, { title: string; artist: string }>,
+    ): NamedValue[] => {
+      const byTitle = new Map<string, { count: number; artists: Map<string, number> }>();
+      perGig.forEach(({ title, artist }) => {
+        const e = byTitle.get(title) ?? { count: 0, artists: new Map<string, number>() };
+        e.count += 1;
+        if (artist) e.artists.set(artist, (e.artists.get(artist) ?? 0) + 1);
+        byTitle.set(title, e);
+      });
+      return topN(
+        Array.from(byTitle.entries()).map(([name, e]) => ({
+          name,
+          value: e.count,
+          sublabel: topArtistLabel(e.artists),
+        })),
         6,
       );
+    };
+
+    const mostCommonOpener = mkSetStructure(openerByGig);
+    const mostCommonCloser = mkSetStructure(closerByGig);
+    const mostCommonEncore = topN(
+      allBags
+        .filter((b) => b.isEncoreCount > 0)
+        .map((b) => ({
+          name: b.display,
+          value: b.isEncoreCount,
+          sublabel: topArtistLabel(b.encoreArtists),
+        })),
+      6,
+    );
 
     const songsHeardOnce = allBags.filter((b) => b.plays === 1).length;
 
@@ -1180,9 +1256,9 @@ export async function getFullStatistics(): Promise<FullStatistics> {
       songsHeardOnce,
       topByDistinctVenues,
       topByDistinctCities,
-      mostCommonOpener: mkFromMap(openerMap),
-      mostCommonCloser: mkFromMap(closerMap),
-      mostCommonEncore: mkFromMap(encoreMap),
+      mostCommonOpener,
+      mostCommonCloser,
+      mostCommonEncore,
       coverCount,
       guestCount,
       setNameBreakdown: topN(
@@ -1206,7 +1282,22 @@ export async function getFullStatistics(): Promise<FullStatistics> {
     for (const r of liveFlat) {
       visits.set(r.venueId, (visits.get(r.venueId) ?? 0) + 1);
       if (!venueArtistSet.has(r.venueId)) venueArtistSet.set(r.venueId, new Set());
-      venueArtistSet.get(r.venueId)!.add(r.artistId);
+      // Count co-headliners as separate artists (e.g. "Gemitaiz & Madman" = 2),
+      // collapsing duplicate artist rows by canonical id.
+      const venueRoles = billingRolesByGig.get(r.gigId);
+      const venueHeadIds = new Set<string>();
+      if (venueRoles) {
+        venueHeadIds.add(canonAid(venueRoles.primaryArtistId));
+        for (const id of venueRoles.coHeadlinerArtistIds) venueHeadIds.add(canonAid(id));
+      }
+      const gigHeadName = artistName.get(r.artistId) ?? "";
+      if (r.artistId && !isCombinedBillingArtistName(gigHeadName)) {
+        venueHeadIds.add(canonAid(r.artistId));
+      }
+      for (const aid of Array.from(venueHeadIds)) {
+        if (isCombinedBillingArtistName(artistName.get(aid) ?? "")) continue;
+        venueArtistSet.get(r.venueId)!.add(aid);
+      }
       const v = venueRow.get(r.venueId);
       if (v?.city) {
         const statCity = canonicalCityName(v.city, v.country);
@@ -1251,8 +1342,8 @@ export async function getFullStatistics(): Promise<FullStatistics> {
       8,
     );
     const topCountries = topN(
-      Array.from(countryCount.entries()).map(([name, value]) => ({
-        name,
+      Array.from(countryCount.entries()).map(([code, value]) => ({
+        name: countryDisplayName(code),
         value,
         detail: `${value} show${value === 1 ? "" : "s"}`,
       })),
@@ -1261,17 +1352,34 @@ export async function getFullStatistics(): Promise<FullStatistics> {
 
     const visitedOnce = Array.from(visits.values()).filter((c) => c === 1).length;
 
+    // Individual artist names per venue (co-headliners listed separately, so a
+    // "Gemitaiz & Madman" show contributes both names to the heatmap popup).
     const artistNamesByVenue = new Map<string, Set<string>>();
     for (const r of liveFlat) {
       const roles = billingRolesByGig.get(r.gigId);
-      const display =
-        roles != null
-          ? formatGigHeadlinerDisplay(roles, artistName, r.artistId)
-          : (artistName.get(r.artistId) ?? "Artist");
+      const headIds = new Set<string>();
+      if (roles) {
+        headIds.add(canonAid(roles.primaryArtistId));
+        for (const id of roles.coHeadlinerArtistIds) headIds.add(canonAid(id));
+      }
+      const gigHeadName = artistName.get(r.artistId) ?? "";
+      if (r.artistId && !isCombinedBillingArtistName(gigHeadName)) {
+        headIds.add(canonAid(r.artistId));
+      }
       if (!artistNamesByVenue.has(r.venueId)) {
         artistNamesByVenue.set(r.venueId, new Set());
       }
-      artistNamesByVenue.get(r.venueId)!.add(display);
+      const set = artistNamesByVenue.get(r.venueId)!;
+      const names = Array.from(headIds)
+        .map((id) => artistName.get(id) ?? "")
+        .filter((n) => n && !isCombinedBillingArtistName(n));
+      if (names.length > 0) {
+        for (const n of names) set.add(n);
+      } else if (roles) {
+        set.add(formatGigHeadlinerDisplay(roles, artistName, r.artistId));
+      } else {
+        set.add(gigHeadName || "Artist");
+      }
     }
 
     const heatmapSpots: VenueHeatmapSpot[] = [];

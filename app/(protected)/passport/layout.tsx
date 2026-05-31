@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Chivo_Mono, Inter, JetBrains_Mono, Kode_Mono } from "next/font/google";
+import { Chivo_Mono, Inter, JetBrains_Mono, Kode_Mono, Oswald } from "next/font/google";
 
 export const metadata: Metadata = {
   title: "My Lifetime Passport",
@@ -30,10 +30,18 @@ const kodeMono = Kode_Mono({
   display: "swap",
 });
 
+// Tall, condensed display face for passport stamps (long artist names fit on one line).
+const oswald = Oswald({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-passport2-oswald",
+  display: "swap",
+});
+
 export default function PassportLayout({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className={`${inter.variable} ${chivoMono.variable} ${jetbrains.variable} ${kodeMono.variable} min-h-[100dvh] text-neutral-100`}
+      className={`${inter.variable} ${chivoMono.variable} ${jetbrains.variable} ${kodeMono.variable} ${oswald.variable} min-h-[100dvh] text-neutral-100`}
       style={{ fontFamily: "var(--font-passport2-inter), system-ui, sans-serif" }}
     >
       {children}

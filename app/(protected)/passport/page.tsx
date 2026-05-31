@@ -89,7 +89,7 @@ export default async function PassportPage() {
         </button>
       </header>
 
-      <div className="relative z-10 mx-auto flex min-h-0 w-full max-w-[430px] flex-1 justify-center px-4 pt-2">
+      <div className="relative z-10 mx-auto flex min-h-0 w-full max-w-[430px] flex-1 items-center justify-center px-4">
         <Frame107OpenBook
           className="h-full w-full"
           passport={passport}

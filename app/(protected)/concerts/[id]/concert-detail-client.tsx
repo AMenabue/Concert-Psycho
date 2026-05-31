@@ -15,6 +15,7 @@ import { formatHm } from "@/components/stats/stat-primitives";
 import { APP_SUBPAGE_HEADER_STYLE } from "@/lib/app-subpage-layout";
 import { formatConcertDateWithWeekday } from "@/lib/format-concert-date";
 import { purchaseDateInputFromDaysInAdvance } from "@/lib/ticket-purchase-date";
+import { resyncGigFromSetlistfm } from "@/app/(protected)/concerts/new/actions";
 import type { ConcertDetailPage, ConcertSongRow } from "./actions";
 import { updateConcertDetailPage } from "./actions";
 
@@ -93,6 +94,8 @@ export function ConcertDetailClient(props: { initial: ConcertDetailPage }) {
   const [edit, setEdit] = useState(false);
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState<string | null>(null);
+  const [reimportPending, startReimport] = useTransition();
+  const [reimportMsg, setReimportMsg] = useState<string | null>(null);
 
   const a = initial.attendance;
 
@@ -177,6 +180,19 @@ export function ConcertDetailClient(props: { initial: ConcertDetailPage }) {
         return;
       }
       setEdit(false);
+      router.refresh();
+    });
+  }
+
+  function reimportFromSetlist() {
+    setReimportMsg(null);
+    startReimport(async () => {
+      const r = await resyncGigFromSetlistfm(initial.gig_id, { force: true });
+      if ("error" in r) {
+        setReimportMsg(r.error);
+        return;
+      }
+      setReimportMsg("Setlist and details refreshed from Setlist.fm.");
       router.refresh();
     });
   }
@@ -310,6 +326,30 @@ export function ConcertDetailClient(props: { initial: ConcertDetailPage }) {
                 Cancel
               </button>
             </div>
+
+            {initial.setlistfmSetlistId ? (
+              <div className="mt-2 border-t border-neutral-800 pt-4">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  Setlist.fm
+                </h3>
+                <p className="mt-2 text-sm text-neutral-400">
+                  Re-fetch the setlist, guests, tour and set time from Setlist.fm.
+                  This overwrites the songs and line-up for this concert with the
+                  latest version.
+                </p>
+                <button
+                  type="button"
+                  disabled={reimportPending}
+                  onClick={reimportFromSetlist}
+                  className="mt-3 inline-flex items-center gap-2 rounded-md border border-neutral-600 px-4 py-2 text-sm font-medium text-neutral-100 hover:bg-neutral-800 disabled:opacity-50"
+                >
+                  {reimportPending ? "Refreshing…" : "Re-import from Setlist.fm"}
+                </button>
+                {reimportMsg ? (
+                  <p className="mt-2 text-sm text-neutral-400">{reimportMsg}</p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         )}
 

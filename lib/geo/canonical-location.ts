@@ -234,7 +234,13 @@ export function canonicalVenueFromSetlist(
     if (isArenaConcertiFieraMilanoVenue(rawName, rawCity)) {
       return { name: CANONICAL_ARENA_CONCERTI_FIERA_MILANO, city: "Milano" };
     }
-    if (/san\s*siro|giuseppe\s*meazza|stadio\s*meazza/i.test(blob)) {
+    // Ippodromo di San Siro (La Maura / Galoppo / Trotto) is a DIFFERENT venue
+    // from the stadium — keep it separate, just normalize the city to Milano.
+    const isIppodromo = /ippodromo|galoppo|trotto|la\s*maura|snai/i.test(blob);
+    if (
+      !isIppodromo &&
+      (/giuseppe\s*meazza/i.test(blob) || /stadio\s*san\s*siro/i.test(blob))
+    ) {
       return { name: "San Siro", city: "Milano" };
     }
   }

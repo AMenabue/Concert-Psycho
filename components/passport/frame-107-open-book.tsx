@@ -30,6 +30,7 @@ const inter = "var(--font-passport2-inter), ui-sans-serif, system-ui, sans-serif
 const jetbrains = "var(--font-passport2-jetbrains), ui-monospace, monospace";
 const chivo = "var(--font-passport2-chivo), ui-monospace, monospace";
 const kode = "var(--font-passport2-kode), ui-monospace, monospace";
+const oswald = "var(--font-passport2-oswald), ui-sans-serif, system-ui, sans-serif";
 
 const HINGE_Y = 254;
 const CARD_W = 380;
@@ -68,8 +69,13 @@ const NOTE_STRIP_TOP_INSET_PX = 6;
 /** Bottom halves need more inset — optical + rounded card makes notes read too low at 6–10px. */
 const NOTE_STRIP_BOTTOM_INSET_PX = 20;
 
-/** MRZ line length — short enough not to overflow the MRZ band at current font size. */
-const MRZ_LINE_LEN = 44;
+/** MRZ line length — slightly OVER-fills the band; the band clips both ends
+ *  (text is centred) so the `<<<` always reach the left/right edges regardless
+ *  of device font metrics. */
+const MRZ_LINE_LEN = 52;
+/** Fixed MRZ font size in the card's 380px coordinate space (scales with the
+ *  card transform). Using px — not vw — keeps it identical on phone and desktop. */
+const MRZ_FONT_SIZE_PX = 11;
 
 /** Page 2 lorem watermark — same brown for page 1 crowd art. */
 const PASSPORT_LOREM_WATERMARK = "rgba(92, 74, 58, 0.18)" as const;
@@ -80,7 +86,9 @@ const PASSPORT_CROWD_WATERMARK = "rgba(92, 74, 58, 0.24)" as const;
 const HOLO_LEFT_PX = 335;
 const HOLO_W_PX = 26;
 const MRZ_LEFT_PX = 16;
-const MRZ_RIGHT_PAD_PX = CARD_W - (HOLO_LEFT_PX + HOLO_W_PX);
+/** Right edge of the MRZ band aligns with the right edge of the stats grid
+ *  (left 16 + width 347 = 363), i.e. where the "Venues" column ends. */
+const MRZ_RIGHT_PAD_PX = CARD_W - (16 + 347);
 
 const FIGMA_LOREM_CORE =
   "eros eu diam eum facilisis elit, consequat, velit feugait sit praesent sed nonummy vulputate qui accumsan in dolore Lorem luptatum nostrud iriure dignissim euismod consectetuer iusto magna zzril ipsum enim vel nulla tation nibh blandit amet, esse dolore odio vero ad tincidunt delenit illum suscipit ullamcorper augue quis ut molestie autem exerci aliquip te minim facilisi. at lobortis commodo adipiscing nulla Ut veniam, consequat. dolor ut et laoreet in feugiat ex aliquam nisl Duis wisi dolore et dolor erat hendrerit duis vel ea volutpat. Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat volutpat. Ut wisi enim ad minim veniam, quis nostrud exerci tation ullamcorper suscipit lobortis nisl ut aliquip ex ea commodo consequat. Duis autem vel eum iriure dolor in hendrerit in vulputate velit esse molestie consequat, vel illum dolore eu feugiat nulla facilisis at vero eros et accumsan et iusto odio dignissim qui blandit praesent luptatum zzril delenit augue duis dolore te feugait nulla facilisi. ";
@@ -91,6 +99,23 @@ function fmtDateShort(d: string): string {
   return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "2-digit" })
     .format(t)
     .toUpperCase();
+}
+
+/** Compact numeric date for stamps: "22/06/24". */
+function fmtDateNumeric(d: string): string {
+  const t = Date.parse(d);
+  if (!Number.isFinite(t)) return d;
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  }).format(t);
+}
+
+/** Venue label without the trailing ", City" — just the venue name. */
+function venueNameOnly(label: string): string {
+  const name = label.split(",")[0]?.trim();
+  return name && name.length > 0 ? name : label;
 }
 
 function fmtDateMrz(d: string): string {
@@ -269,14 +294,22 @@ function StampPiece({ stamp, slot }: { stamp: PassportStampPreview; slot: StampS
         {shape.outline}
       </svg>
       <div
-        className="absolute inset-0 flex flex-col items-center justify-center text-center"
+        className="absolute inset-0 flex flex-col items-center justify-center gap-[1px] text-center"
         style={{ padding: `${shape.padY}px ${shape.padX}px` }}
       >
-        <p className="w-full truncate text-[8.5px] font-bold uppercase leading-[11px] tracking-tight">
+        <p
+          className="w-full truncate uppercase leading-[15px] tracking-[0.01em]"
+          style={{ fontFamily: oswald, fontWeight: 700, fontSize: 14 }}
+        >
           {stamp.artistName}
         </p>
-        <p className="w-full truncate text-[6.5px] font-semibold leading-[9px]">{stamp.dateLabel}</p>
-        <p className="w-full truncate text-[6.5px] font-normal leading-[9px]">{stamp.venueLabel}</p>
+        <div className="flex w-full min-w-0 items-baseline justify-center gap-[3px] text-[6.5px] font-semibold uppercase leading-[8px] tracking-[0.04em]">
+          <span className="shrink-0 tabular-nums">{fmtDateNumeric(stamp.rawDate)}</span>
+          <span className="shrink-0" aria-hidden>
+            {"\u2022"}
+          </span>
+          <span className="min-w-0 truncate">{venueNameOnly(stamp.venueLabel)}</span>
+        </div>
       </div>
     </div>
   );
@@ -463,7 +496,7 @@ export function Frame107OpenBook({
   return (
     <div
       ref={viewportRef}
-      className={className ? `flex w-full items-start justify-center ${className}` : "flex w-full items-start justify-center"}
+      className={className ? `flex w-full items-center justify-center ${className}` : "flex w-full items-center justify-center"}
       data-passport-viewport
     >
       <div
@@ -731,14 +764,14 @@ export function Frame107OpenBook({
                         }}
                       >
                         <p
-                          className="m-0 w-full whitespace-nowrap font-light uppercase leading-[12px] tracking-[0.07em] text-[#23007D]/85 mix-blend-plus-darker"
-                          style={{ fontSize: "clamp(8.5px, 2.55vw, 11px)" }}
+                          className="m-0 w-full whitespace-nowrap text-center font-light uppercase leading-[12px] tracking-[0.07em] text-[#23007D]/85 mix-blend-plus-darker"
+                          style={{ fontSize: MRZ_FONT_SIZE_PX }}
                         >
                           {mrzLine1}
                         </p>
                         <p
-                          className="m-0 mt-1 w-full whitespace-nowrap font-light uppercase leading-[12px] tracking-[0.07em] text-[#23007D]/85 mix-blend-plus-darker"
-                          style={{ fontSize: "clamp(8.5px, 2.55vw, 11px)" }}
+                          className="m-0 mt-1 w-full whitespace-nowrap text-center font-light uppercase leading-[12px] tracking-[0.07em] text-[#23007D]/85 mix-blend-plus-darker"
+                          style={{ fontSize: MRZ_FONT_SIZE_PX }}
                         >
                           {mrzLine2}
                         </p>
