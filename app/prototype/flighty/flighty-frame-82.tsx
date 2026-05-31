@@ -508,14 +508,14 @@ export function FlightyFrame82({
                           </p>
                         </div>
                         <div
-                          className="flex shrink-0 flex-col items-end gap-[6px]"
+                          className="flex shrink-0 flex-col items-center gap-[6px]"
                           data-node-id="4004:1953"
                         >
-                          <p className="whitespace-nowrap text-right text-[14px] font-light leading-[17px] text-[rgba(255,255,255,0.47)]">
+                          <p className="whitespace-nowrap text-center text-[14px] font-light leading-[17px] text-[rgba(255,255,255,0.47)]">
                             Venues
                           </p>
                           <p
-                            className={`${mono} text-right font-semibold text-[24px] leading-[29px] text-white tabular-nums`}
+                            className={`${mono} text-center font-semibold text-[24px] leading-[29px] text-white tabular-nums`}
                             data-node-id="4004:1957"
                           >
                             {H.venuesCount}
